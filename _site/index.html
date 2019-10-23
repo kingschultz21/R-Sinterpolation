@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+
+<title>Spatial Interpolation of Particulate Matter in Southern California</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Spatial Interpolation of Particulate Matter in Southern California</h1>
+
+</div>
+
+
+<div id="data-preparation" class="section level1">
+<h1>Data Preparation</h1>
+<div id="libraries" class="section level3">
+<h3>libraries</h3>
+<pre class="r"><code>library(rgdal)
+library(gstat)
+library(sp)
+library(spatstat)  # Used for the dirichlet tessellation function
+library(maptools)  # Used for conversion from SPDF to ppp
+library(raster)    # Used to clip out thiessen polygons
+library(tmap)</code></pre>
+</div>
+<div id="working-directory" class="section level3">
+<h3>working directory</h3>
+<pre class="r"><code>dir &lt;- &quot;/home/connor/schoolwork_2020/first_semester/geog418/assignments/assignment4/R-Sinterpolation&quot;
+setwd(dir)</code></pre>
+</div>
+<div id="dataset-1" class="section level3">
+<h3>dataset 1</h3>
+<pre class="r"><code>#DATASET 1
+#Read the pollution csv dataset.
+ozone = read.csv(&quot;./data/OZONE_PICKDATA_2016-4-30.csv&quot;, header = T, sep = &quot;,&quot;)
+#Examine the first several rows of the ozone dataset. 
+head(ozone)</code></pre>
+<pre><code>##   site       date start_hour value variable                     units
+## 1 2077 2016-04-01          0 0.026    OZONE Parts Per Million ( ppm )
+## 2 2077 2016-04-01          1 0.023    OZONE Parts Per Million ( ppm )
+## 3 2077 2016-04-01          2 0.024    OZONE Parts Per Million ( ppm )
+## 4 2077 2016-04-01          3 0.020    OZONE Parts Per Million ( ppm )
+## 5 2077 2016-04-01          4 0.016    OZONE Parts Per Million ( ppm )
+## 6 2077 2016-04-01          5 0.015    OZONE Parts Per Million ( ppm )
+##   quality prelim              name latitude longitude obs_type
+## 1       0      y Redlands-Dearborn 34.05975 -117.1473        H
+## 2       0      y Redlands-Dearborn 34.05975 -117.1473        H
+## 3       0      y Redlands-Dearborn 34.05975 -117.1473        H
+## 4       0      y Redlands-Dearborn 34.05975 -117.1473        H
+## 5       0      y Redlands-Dearborn 34.05975 -117.1473        H
+## 6       0      y Redlands-Dearborn 34.05975 -117.1473        H
+##   monitoring_id flag
+## 1            NA   NA
+## 2            NA   NA
+## 3            NA   NA
+## 4            NA   NA
+## 5            NA   NA
+## 6            NA   NA</code></pre>
+</div>
+<div id="dataset-2" class="section level3">
+<h3>dataset 2</h3>
+<pre class="r"><code>#DATASET 2
+#Read the monitoring station spatial dataset as an OGR data object.
+monitor = readOGR(dsn = &quot;./data&quot;, layer = &quot;airmonitoringstations&quot;)</code></pre>
+<pre><code>## OGR data source with driver: ESRI Shapefile 
+## Source: &quot;/home/connor/schoolwork_2020/first_semester/geog418/assignments/assignment4/R-Sinterpolation/data&quot;, layer: &quot;airmonitoringstations&quot;
+## with 296 features
+## It has 12 fields</code></pre>
+<pre class="r"><code>#Extract the monitoring stations for the South Coast (SC)
+SC.monitor = monitor[monitor$AIRBASIN %in% c(&quot;South Coast&quot;),]
+#Reproject the data to a suitable projection. Here we use a UTM projection because of the scale of the analysis. 
+SC.monitor.t = spTransform(SC.monitor, CRS(&quot;+init=epsg:26911&quot;))</code></pre>
+</div>
+<div id="dataset-3" class="section level3">
+<h3>dataset 3</h3>
+<pre class="r"><code>#DATASET 3
+#Read the California Air Basin spatial dataset.
+Ca.AirBasin = readOGR(dsn = &quot;./data&quot;, layer = &quot;CaAirBasin&quot;)</code></pre>
+<pre><code>## OGR data source with driver: ESRI Shapefile 
+## Source: &quot;/home/connor/schoolwork_2020/first_semester/geog418/assignments/assignment4/R-Sinterpolation/data&quot;, layer: &quot;CaAirBasin&quot;
+## with 15 features
+## It has 5 fields
+## Integer64 fields read as strings:  CAABA_ CAABA_ID</code></pre>
+<pre class="r"><code>#Extract the South Coast air basin from the spatial dataset. 
+SC.AirBasin = Ca.AirBasin[Ca.AirBasin$NAME %in% c(&quot;South Coast&quot;),] 
+
+#Reproject the South Coast air basin spatial dataset to match the projeciton of the monitoring station dataset.  
+SC.AirBasin.t = spTransform(SC.AirBasin, CRS(&quot;+init=epsg:26911&quot;))</code></pre>
+</div>
+<div id="meanmax-ozone" class="section level3">
+<h3>mean/max ozone</h3>
+<pre class="r"><code>#Calculate the mean and max ozone level for each site for all readings.
+mean.ozone = aggregate(value ~ site, ozone, mean)
+max.ozone = aggregate(value ~ site, ozone, max)
+
+#Join the mean and max ozone values to their respective monitoring stations. In doing so, you will need to rename the 
+#first column of the monitoring data to site in order to have a unique name to match the two datasets.
+names(SC.monitor.t)[1] =&quot;site&quot;  
+
+#Merge the the monitoring station shapefile with the ozone data using the site column.  
+mrg.tab.mean &lt;- sp::merge(SC.monitor.t, mean.ozone, by = &quot;site&quot;, all.x = FALSE) 
+mrg.tab.max &lt;- sp::merge(SC.monitor.t, max.ozone, by = &quot;site&quot;, all.x = FALSE)
+
+#Create a max and a mean spatialPointDataFrame. 
+ozone.mean.spdf = na.omit(mrg.tab.mean)
+ozone.max.spdf = na.omit(mrg.tab.max)</code></pre>
+</div>
+<div id="visualize" class="section level3">
+<h3>visualize!</h3>
+<pre class="r"><code># Load and observe ozone data
+tm_shape(SC.AirBasin.t) + 
+  tm_polygons() +
+  tm_shape(ozone.mean.spdf) +
+  tm_dots(col=&quot;value&quot;, palette = &quot;magma&quot;, 
+          title=&quot;Sampled Ozone \n(in ppm)&quot;, size=0.7) + 
+  tm_legend(legend.outside=TRUE)</code></pre>
+<p><img src="index_files/figure-html/maps-1.png" width="672" /></p>
+</div>
+</div>
+<div id="thiessen-polygons" class="section level1">
+<h1>Thiessen Polygons</h1>
+<div id="init-surface-set-projection" class="section level3">
+<h3>init surface, set projection</h3>
+<pre class="r"><code># Create a tessellated surface
+th  &lt;-  as(dirichlet(as.ppp(ozone.mean.spdf)), &quot;SpatialPolygons&quot;)
+proj4string(th) &lt;- proj4string(ozone.mean.spdf)</code></pre>
+</div>
+<div id="create-surface" class="section level3">
+<h3>create surface</h3>
+<pre class="r"><code># The tessellated surface does not store attribute information
+# from the point data layer. We&#39;ll use the over() function (from the sp
+# package) to join the point attributes to the tesselated surface via
+# a spatial join. The over() function creates a dataframe that will need to
+# be added to the `th` object thus creating a SpatialPolygonsDataFrame object
+th.z     &lt;- over(th, ozone.mean.spdf, fn=mean)
+th.spdf  &lt;-  SpatialPolygonsDataFrame(th, th.z)
+
+# Finally, we&#39;ll clip the tessellated  surface to the South Coast Air Basin boundaries
+th.clp   &lt;- raster::intersect(SC.AirBasin.t,th.spdf)</code></pre>
+</div>
+<div id="visualize-1" class="section level3">
+<h3>visualize!</h3>
+<pre class="r"><code># Map the data
+tm_shape(th.clp) + 
+  tm_polygons(col=&quot;value&quot;, palette=&quot;magma&quot;,
+              title=&quot;Predicted Ozone \n(in ppm)&quot;) +
+  tm_legend(legend.outside=TRUE)</code></pre>
+<p><img src="index_files/figure-html/thiessen_map-1.png" width="672" /></p>
+</div>
+</div>
+<div id="idw" class="section level1">
+<h1>IDW</h1>
+<div id="grid" class="section level3">
+<h3>grid</h3>
+<pre class="r"><code># Create an empty grid where n is the total number of cells
+grd &lt;- as.data.frame(spsample(ozone.mean.spdf, &quot;regular&quot;, n=50000))
+names(grd)       &lt;- c(&quot;X&quot;, &quot;Y&quot;)
+coordinates(grd) &lt;- c(&quot;X&quot;, &quot;Y&quot;)
+gridded(grd)     &lt;- TRUE  # Create SpatialPixel object
+fullgrid(grd)    &lt;- TRUE  # Create SpatialGrid object
+
+proj4string(grd) &lt;- proj4string(SC.monitor.t)
+P.idw &lt;- gstat::idw(value ~ 1, ozone.mean.spdf, newdata=grd, idp=2.0)
+r       &lt;- raster(P.idw)
+r.m     &lt;- mask(r, SC.AirBasin.t)</code></pre>
+</div>
+<div id="visualize-2" class="section level3">
+<h3>visualize!</h3>
+<pre class="r"><code>tm_shape(r.m) + 
+  tm_raster(n=10,palette = &quot;magma&quot;,
+            title=&quot;Predicted Ozone \n(in ppm)&quot;) + 
+  tm_shape(ozone.mean.spdf) + tm_dots(size=0.2) +
+  tm_legend(legend.outside=TRUE)</code></pre>
+<p><img src="index_files/figure-html/visualize-1.png" width="672" /></p>
+</div>
+<div id="populate-idw" class="section level3">
+<h3>populate IDW</h3>
+<pre class="r"><code># Leave-one-out validation routine
+IDW.out &lt;- vector(length = length(ozone.mean.spdf))
+for (i in 1:length(ozone.mean.spdf)) {
+  IDW.out[i] &lt;- gstat::idw(value ~ 1, ozone.mean.spdf[-i,], ozone.mean.spdf[i,], idp=0.5)$var1.pred
+}</code></pre>
+</div>
+<div id="plot-differences" class="section level3">
+<h3>plot differences</h3>
+<pre class="r"><code># Plot the differences
+OP &lt;- par(pty=&quot;s&quot;, mar=c(4,3,0,0))
+plot(IDW.out ~ ozone.mean.spdf$value, asp=1, xlab=&quot;Observed&quot;, ylab=&quot;Predicted&quot;, pch=16,
+     col=rgb(0,0,0,0.5))
+abline(lm(IDW.out ~ ozone.mean.spdf$value), col=&quot;red&quot;, lw=2,lty=2)
+abline(0,1)</code></pre>
+<p><img src="index_files/figure-html/idw_plot-1.png" width="672" /></p>
+<pre class="r"><code>par(OP)
+sqrt( sum((IDW.out - ozone.mean.spdf$value)^2) / length(ozone.mean.spdf))</code></pre>
+<pre><code>## [1] 0.004261506</code></pre>
+</div>
+<div id="jacknife" class="section level3">
+<h3>jacknife</h3>
+<pre class="r"><code># Implementation of a jackknife technique to estimate a confidence interval at each unsampled point.
+# Create the interpolated surface
+img &lt;- gstat::idw(value~1, ozone.mean.spdf, newdata=grd, idp=2.0)
+n   &lt;- length(ozone.mean.spdf)
+Zi  &lt;- matrix(nrow = length(img$var1.pred), ncol = n)
+
+# Remove a point then interpolate (do this n times for each point)
+st &lt;- stack()
+for (i in 1:n){
+  Z1 &lt;- gstat::idw(value~1, ozone.mean.spdf[-i,], newdata=grd, idp=2.0)
+  st &lt;- addLayer(st,raster(Z1,layer=1))
+  # Calculated pseudo-value Z at j
+  Zi[,i] &lt;- n * img$var1.pred - (n-1) * Z1$var1.pred
+}
+
+# Jackknife estimator of parameter Z at location j
+Zj &lt;- as.matrix(apply(Zi, 1, sum, na.rm=T) / n )
+
+# Compute (Zi* - Zj)^2
+c1 &lt;- apply(Zi,2,&#39;-&#39;,Zj)            # Compute the difference
+c1 &lt;- apply(c1^2, 1, sum, na.rm=T ) # Sum the square of the difference
+
+# Compute the confidence interval
+CI &lt;- sqrt( 1/(n*(n-1)) * c1)
+
+# Create (CI / interpolated value) raster
+img.sig   &lt;- img
+img.sig$v &lt;- CI /img$var1.pred 
+
+# Clip the confidence raster to Southern California
+r &lt;- raster(img.sig, layer=&quot;v&quot;)
+r.m &lt;- mask(r, SC.AirBasin.t)</code></pre>
+</div>
+<div id="idw-plot-2" class="section level3">
+<h3>idw plot 2</h3>
+<pre class="r"><code># Plot the map
+tm_shape(r.m) + tm_raster(n=7,title=&quot;95% confidence interval \n(in ppm)&quot;) +
+  tm_shape(ozone.mean.spdf) + tm_dots(size=0.2) +
+  tm_legend(legend.outside=TRUE)</code></pre>
+<p><img src="index_files/figure-html/idw_plot2-1.png" width="672" /></p>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
