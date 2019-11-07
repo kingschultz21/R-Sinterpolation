@@ -41,3 +41,4 @@ tm_shape(r.m) +
   tm_raster(n=7, palette ="Reds",
             title="95% CI map \n(in ppm)") +tm_shape(ozone.mean.spdf) + tm_dots(size=0.2) +
   tm_legend(legend.outside=TRUE)
+

@@ -1,10 +1,16 @@
 ---
 title: "Spatial Interpolation of Particulate Matter in Southern California"
+geometry: margin=2cm
 ---
-# Data Preparation
+#### By Connor Schultz
+<!--------------------------------------------------------------------------------------------------------------------------------------->
+# Introduction
+<!--------------------------------------------------------------------------------------------------------------------------------------->
 
-### libraries
-```{r libraries, warning=FALSE,message=FALSE}
+
+
+<!------------------------------------------------------Data Preperation----------------------------------------------------------------->
+```{r libraries, warning=FALSE,message=FALSE, echo =FALSE}
 library(rgdal)
 library(gstat)
 library(sp)
@@ -12,16 +18,17 @@ library(spatstat)  # Used for the dirichlet tessellation function
 library(maptools)  # Used for conversion from SPDF to ppp
 library(raster)    # Used to clip out thiessen polygons
 library(tmap)
+library(leaflet)
 ```
 
-### working directory
-```{r wd}
+<!--working directory-->
+```{r wd, echo =FALSE}
 dir <- "/home/connor/schoolwork_2020/first_semester/geog418/assignments/assignment4/R-Sinterpolation"
 setwd(dir)
 ```
 
-### dataset 1
-```{r ds1}
+<!--dataset 1-->
+```{r ds1, echo =FALSE, results="hide"}
 #DATASET 1
 #Read the pollution csv dataset.
 ozone = read.csv("./data/OZONE_PICKDATA_2016-4-30.csv", header = T, sep = ",")
@@ -29,8 +36,8 @@ ozone = read.csv("./data/OZONE_PICKDATA_2016-4-30.csv", header = T, sep = ",")
 head(ozone)
 ```
 
-### dataset 2
-```{r ds2}
+<!--dataset 2-->
+```{r ds2, results = "hide", message=FALSE, warning=FALSE, echo=FALSE}
 #DATASET 2
 #Read the monitoring station spatial dataset as an OGR data object.
 monitor = readOGR(dsn = "./data", layer = "airmonitoringstations")
@@ -40,8 +47,8 @@ SC.monitor = monitor[monitor$AIRBASIN %in% c("South Coast"),]
 SC.monitor.t = spTransform(SC.monitor, CRS("+init=epsg:26911"))
 ```
 
-### dataset 3
-```{r ds3}
+<!--dataset 3-->
+```{r ds3, results = "hide", message=FALSE, warning=FALSE, echo=FALSE}
 #DATASET 3
 #Read the California Air Basin spatial dataset.
 Ca.AirBasin = readOGR(dsn = "./data", layer = "CaAirBasin")
@@ -53,8 +60,8 @@ SC.AirBasin = Ca.AirBasin[Ca.AirBasin$NAME %in% c("South Coast"),]
 SC.AirBasin.t = spTransform(SC.AirBasin, CRS("+init=epsg:26911"))
 ```
 
-### mean/max ozone
-```{r mathz}
+<!--merge data-->
+```{r mathz, echo = FALSE}
 #Calculate the mean and max ozone level for each site for all readings.
 mean.ozone = aggregate(value ~ site, ozone, mean)
 max.ozone = aggregate(value ~ site, ozone, max)
@@ -72,29 +79,46 @@ ozone.mean.spdf = na.omit(mrg.tab.mean)
 ozone.max.spdf = na.omit(mrg.tab.max)
 ```
 
-### visualize!
-```{r maps}
-# Load and observe ozone data
-tm_shape(SC.AirBasin.t) + 
-  tm_polygons() +
-  tm_shape(ozone.mean.spdf) +
-  tm_dots(col="value", palette = "magma", 
-          title="Sampled Ozone \n(in ppm)", size=0.7) + 
-  tm_legend(legend.outside=TRUE)
+## Study Area and Data
+### Study Area
+```{r studyarea, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Figure 1: Study Area Map of Southern California Air Basin and Monitoring Station Locations"}
+study_area = spTransform(SC.AirBasin, CRS("+proj=longlat +datum=WGS84"))
+stations  = spTransform(ozone.mean.spdf, CRS("+proj=longlat +datum=WGS84"))
+classifier <- colorBin(palette = "YlOrRd", stations$value)
+
+study_area <- leaflet(stations) %>%
+  setView(lng = -118, lat =  34 ,zoom = 7) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(data=study_area, weight = 2, color = "red") %>%
+  addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE,
+           radius = 5,
+           color = ~classifier(value), fillOpacity = 1,
+           label = mapply(
+             function(x, y) {
+               htmltools::HTML(sprintf("<em>%s:</em> %s", htmltools::htmlEscape(x), htmltools::htmlEscape(y)))
+             },
+             stations$SITENAME, round(stations$value, digits = 4), SIMPLIFY = F),
+           labelOptions = lapply(1:nrow(stations), function(x) {
+             labelOptions(direction = "auto")
+           })) %>%
+  addLegend("bottomright", pal = classifier, values = ~values, 
+            title = "Sampled Ozone (ppm)", opacity = 1)
+study_area
 
 ```
-
+<!--------------------------------------------------------------------------------------------------------------------------------------->
 # Thiessen Polygons
+<!--------------------------------------------------------------------------------------------------------------------------------------->
 
-### init surface, set projection
-```{r init_surface, warning= FALSE, message= FALSE}
+<!--init surface, set projection-->
+```{r init_surface, warning= FALSE, message= FALSE, echo=F, results="hide"}
 # Create a tessellated surface
 th  <-  as(dirichlet(as.ppp(ozone.mean.spdf)), "SpatialPolygons")
 proj4string(th) <- proj4string(ozone.mean.spdf)
 ```
 
-### create surface
-```{r create_surface, warning=FALSE,message=FALSE}
+<!--create surface-->
+```{r create_surface, warning=FALSE,message=FALSE, echo=F, results="hide"}
 # The tessellated surface does not store attribute information
 # from the point data layer. We'll use the over() function (from the sp
 # package) to join the point attributes to the tesselated surface via
@@ -108,19 +132,30 @@ th.clp   <- raster::intersect(SC.AirBasin.t,th.spdf)
 
 ```
 
-### visualize!
-```{r thiessen_map}
-# Map the data
-tm_shape(th.clp) + 
-  tm_polygons(col="value", palette="magma",
-              title="Predicted Ozone \n(in ppm)") +
-  tm_legend(legend.outside=TRUE)
+<!--thiessen polygons!-->
+```{r thiessen, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Figure 2: Thiessen Polygons"}
+thiessen_polys = spTransform(th.clp, CRS("+proj=longlat +datum=WGS84"))
+classifier <- colorBin(palette = "YlOrRd", thiessen_polys$value, na.color = "transparent")
+
+thiessen <- leaflet() %>%
+  setView(lng = -117.7, lat =  34 ,zoom = 9) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addPolygons(data=thiessen_polys, weight = 2, color = ~classifier(value), fillOpacity = 0.7,
+              highlightOptions = highlightOptions(color = "white", weight = 4, bringToFront = FALSE),
+              label = round(thiessen_polys$value, digits=4),
+              labelOptions = labelOptions(noHide = FALSE, textOnly = TRUE, opacity = 1 , textsize='20px')) %>%
+  addLegend("bottomright", pal = classifier, values = thiessen_polys$value, 
+            title = "Predicted Ozone (ppm)", opacity = 1)
+thiessen
+
 ```
 
+<!--------------------------------------------------------------------------------------------------------------------------------------->
 # IDW
+<!--------------------------------------------------------------------------------------------------------------------------------------->
 
-### grid
-```{r IDW_grid,results="hide"}
+<!--create grid-->
+```{r IDW_grid,message=FALSE, warning=FALSE, results="hide",echo=F}
 # Create an empty grid where n is the total number of cells
 grd <- as.data.frame(spsample(ozone.mean.spdf, "regular", n=50000))
 names(grd)       <- c("X", "Y")
@@ -135,30 +170,21 @@ r.m     <- mask(r, SC.AirBasin.t)
 
 ```
 
-### visualize!
-```{r visualize}
-tm_shape(r.m) + 
-  tm_raster(n=10,palette = "magma",
-            title="Predicted Ozone \n(in ppm)") + 
-  tm_shape(ozone.mean.spdf) + tm_dots(size=0.2) +
-  tm_legend(legend.outside=TRUE)
-```
-
-### populate IDW
-```{r idw,results="hide"}
+<!-- populate IDW -->
+```{r idw,results="hide", echo=F, message=FALSE, warning=FALSE}
 # Leave-one-out validation routine
 IDW.out <- vector(length = length(ozone.mean.spdf))
 for (i in 1:length(ozone.mean.spdf)) {
-  IDW.out[i] <- gstat::idw(value ~ 1, ozone.mean.spdf[-i,], ozone.mean.spdf[i,], idp=0.5)$var1.pred
+  IDW.out[i] <- gstat::idw(value ~ 1, ozone.mean.spdf[-i,], ozone.mean.spdf[i,], idp=2)$var1.pred
 }
 
 ```
 
-### plot differences
-```{r idw_plot}
+<!-- plot differences -->
+```{r idw_plot, dpi = 300, echo=F, message=FALSE, warning=FALSE}
 # Plot the differences
 OP <- par(pty="s", mar=c(4,3,0,0))
-plot(IDW.out ~ ozone.mean.spdf$value, asp=1, xlab="Observed", ylab="Predicted", pch=16,
+plot(IDW.out ~ ozone.mean.spdf$value, asp=1, xlab="Observed Ozone (ppm)", ylab="Predicted Ozone (ppm)", pch=16,
      col=rgb(0,0,0,0.5))
 abline(lm(IDW.out ~ ozone.mean.spdf$value), col="red", lw=2,lty=2)
 abline(0,1)
@@ -167,8 +193,8 @@ sqrt( sum((IDW.out - ozone.mean.spdf$value)^2) / length(ozone.mean.spdf))
 
 ```
 
-### jacknife
-```{r jacknife,results="hide"}
+<!-- jackknife -->
+```{r jacknife,results="hide", echo=F, message=FALSE, warning=FALSE}
 # Implementation of a jackknife technique to estimate a confidence interval at each unsampled point.
 # Create the interpolated surface
 img <- gstat::idw(value~1, ozone.mean.spdf, newdata=grd, idp=2.0)
@@ -199,17 +225,179 @@ img.sig   <- img
 img.sig$v <- CI /img$var1.pred 
 
 # Clip the confidence raster to Southern California
-r <- raster(img.sig, layer="v")
+r2 <- raster(img.sig, layer="v")
+r.m2 <- mask(r2, SC.AirBasin.t)
+```
+
+<!-- visualize IDWs -->
+```{r idw_map, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Figure 3: Inverse Distance Weighted"}
+idw_geom = projectRaster(r.m, crs=CRS("+proj=longlat +datum=WGS84"))
+idw_geom2 = projectRaster(r.m2, crs=CRS("+proj=longlat +datum=WGS84"))
+
+classifier1 <- colorBin(palette = "YlOrRd",values(idw_geom), na.color='transparent')
+classifier2 <- colorBin(palette = "YlOrRd",values(idw_geom2), na.color='transparent')
+
+idw_map <- leaflet(stations) %>%
+  setView(lng = -117.7, lat =  34 ,zoom = 9) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addRasterImage(r.m, colors = classifier1, opacity=0.7, group = "Predicted Ozone") %>%
+  addRasterImage(r.m2, colors = classifier2, opacity=0.7, group = "95% Confidence Interval") %>%
+  addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE,
+           radius = 2,
+           color = "black", fillOpacity = 1,
+           label = stations$SITENAME) %>%
+  addLegend("bottomright", pal = classifier1, values = values(idw_geom), 
+            title = "Predicted Ozone (ppm)", opacity = 1, group = "Predicted Ozone") %>%
+  addLegend("bottomright", pal = classifier2, values = values(idw_geom2), 
+            title = "95% Confidence Interval (ppm)", opacity = 1, group = "95% Confidence Interval") %>%
+  addLayersControl(overlayGroups = c("Predicted Ozone","95% Confidence Interval"),
+              options = layersControlOptions(collapsed = FALSE)) %>% 
+  hideGroup("95% Confidence Interval")
+idw_map
+
+```
+
+<!--------------------------------------------------------------------------------------------------------------------------------------->
+# polynomial
+<!--------------------------------------------------------------------------------------------------------------------------------------->
+
+<!-- define first order poly -->
+```{r polynomial1,results="hide", echo=F, message=FALSE, warning=FALSE}
+# Define the 1st order polynomial equation
+f.1 <- as.formula(value ~ X + Y) 
+
+# Add X and Y to P
+ozone.mean.spdf$X <- coordinates(ozone.mean.spdf)[,1]
+ozone.mean.spdf$Y <- coordinates(ozone.mean.spdf)[,2]
+
+# Run the regression model
+lm.1 <- lm( f.1, data=ozone.mean.spdf)
+
+# Use the regression model output to interpolate the surface
+dat.1st <- SpatialGridDataFrame(grd, data.frame(var1.pred = predict(lm.1, newdata=grd))) 
+
+# Clip the interpolated raster to Texas
+r   <- raster(dat.1st)
 r.m <- mask(r, SC.AirBasin.t)
-```
-
-### idw plot 2
-```{r idw_plot2}
-# Plot the map
-tm_shape(r.m) + tm_raster(n=7,title="95% confidence interval \n(in ppm)") +
-  tm_shape(ozone.mean.spdf) + tm_dots(size=0.2) +
-  tm_legend(legend.outside=TRUE)
 
 ```
 
+<!-- define second order poly -->
+```{r polynomial2,results="hide", echo=F, message=FALSE, warning=FALSE}
+# Define the 2nd order polynomial equation
+f.2 <- as.formula(value ~ X + Y + I(X*X)+I(Y*Y) + I(X*Y))
+
+# Add X and Y to P
+ozone.mean.spdf$X <- coordinates(ozone.mean.spdf)[,1]
+ozone.mean.spdf$Y <- coordinates(ozone.mean.spdf)[,2]
+
+# Run the regression model
+lm.2 <- lm( f.2, data=ozone.mean.spdf)
+
+# Use the regression model output to interpolate the surface
+dat.2nd <- SpatialGridDataFrame(grd, data.frame(var1.pred = predict(lm.2, newdata=grd))) 
+
+# Clip the interpolated raster to Texas
+r2   <- raster(dat.2nd)
+r.m2 <- mask(r2, SC.AirBasin.t)
+
+```
+
+<!-- visualize polys-->
+```{r poly_map, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Figure 4: Polynomial Trend Surfaces"}
+poly_geom = projectRaster(r.m, crs=CRS("+proj=longlat +datum=WGS84"))
+poly_geom2 = projectRaster(r.m2, crs=CRS("+proj=longlat +datum=WGS84"))
+
+classifier1 <- colorBin(palette = "YlOrRd",values(poly_geom), na.color='transparent')
+classifier2 <- colorBin(palette = "YlOrRd",values(poly_geom2), na.color='transparent')
+
+poly_map <- leaflet(stations) %>%
+  setView(lng = -117.7, lat =  34 ,zoom = 9) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addRasterImage(r.m, colors = classifier1, opacity=0.7, group = "1st Order Polynomial") %>%
+  addRasterImage(r.m2, colors = classifier2, opacity=0.7, group = "2nd Order Polynomial") %>%
+  addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE,
+           radius = 2,
+           color = "black", fillOpacity = 1,
+           label = stations$SITENAME) %>%
+  addLegend("bottomright", pal = classifier1, values = values(poly_geom), 
+            title = "Predicted Ozone (ppm)", opacity = 1, group = "1st Order Polynomial") %>%
+  addLegend("bottomright", pal = classifier2, values = values(poly_geom2), 
+            title = "Predicted Ozone (ppm)", opacity = 1, group = "2nd Order Polynomial") %>%
+  addLayersControl(overlayGroups = c("1st Order Polynomial","2nd Order Polynomial"),
+              options = layersControlOptions(collapsed = FALSE)) %>% 
+  hideGroup("2nd Order Polynomial")
+poly_map
+
+```
+
+<!--------------------------------------------------------------------------------------------------------------------------------------->
+# kriging
+<!--------------------------------------------------------------------------------------------------------------------------------------->
+
+<!-- define krigs-->
+```{r krig_setup, echo=F, message=FALSE, warning=FALSE}
+
+f.1 <- as.formula(value ~ X + Y) 
+var.smpl <- variogram(f.1, ozone.mean.spdf, cloud = FALSE) #, cutoff=1000000, width=89900)
+dat.fit  <- fit.variogram(var.smpl, fit.ranges = FALSE, fit.sills =FALSE,
+                          vgm(psill=1.4e-05, model="Gau", range=10000, nugget=0))
+plot(var.smpl, dat.fit)
+
+
+# Define the trend model
+f.1 <- as.formula(value ~ X + Y) 
+
+# Perform the krige interpolation (note the use of the variogram model
+# created in the earlier step)
+dat.krg <- krige( f.1, ozone.mean.spdf, grd, dat.fit)
+```
+
+<!-- krigs to raster-->
+```{r krig1, results="hide",echo=F, message=FALSE, warning=FALSE}
+# Convert kriged surface to a raster object for clipping
+r <- raster(dat.krg)
+r.m <- mask(r, SC.AirBasin.t)
+
+r2   <- raster(dat.krg, layer="var1.var")
+r.m2 <- mask(r2, SC.AirBasin.t)
+
+r3   <- sqrt(raster(dat.krg, layer="var1.var")) * 1.96
+r.m3 <- mask(r3, SC.AirBasin.t)
+
+```
+
+<!-- visualize krigs-->
+```{r krig_map, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Figure 5: Kriging"}
+krig_geom = projectRaster(r.m, crs=CRS("+proj=longlat +datum=WGS84"))
+krig_geom2 = projectRaster(r.m2, crs=CRS("+proj=longlat +datum=WGS84"))
+krig_geom3 = projectRaster(r.m3, crs=CRS("+proj=longlat +datum=WGS84"))
+krig_geom2
+classifier1 <- colorBin(palette = "YlOrRd",values(krig_geom), na.color='transparent')
+classifier2 <- colorBin(palette = "YlOrRd",values(krig_geom2), na.color='transparent')
+classifier3 <- colorBin(palette = "YlOrRd",values(krig_geom3), na.color='transparent')
+
+krig_map <- leaflet(stations) %>%
+  setView(lng = -117.7, lat =  34 ,zoom = 9) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addRasterImage(r.m, colors = classifier1, opacity=0.7, group = "Predicted Ozone") %>%
+  addRasterImage(r.m2, colors = classifier2, opacity=0.7, group = "Variance") %>%
+  addRasterImage(r.m3, colors = classifier3, opacity=0.7, group = "95% Confidence Interval") %>%
+  addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE,
+           radius = 2,
+           color = "black", fillOpacity = 1,
+           label = stations$SITENAME) %>%
+  addLegend("bottomright", pal = classifier1, values = values(krig_geom), 
+            title = "Predicted Ozone (ppm)", opacity = 1, group = "Predicted Ozone") %>%
+  addLegend("bottomright", pal = classifier2, values = values(krig_geom2), 
+            title = "Variance (squared ppm x e-05)", opacity = 1, group = "Variance") %>%
+  addLegend("bottomright", pal = classifier3, values = values(krig_geom3), 
+            title = "95% Confidence Interval (ppm)", opacity = 1, group = "95% Confidence Interval") %>%
+  addLayersControl(overlayGroups = c("Predicted Ozone","Variance","95% Confidence Interval"),
+              options = layersControlOptions(collapsed = FALSE)) %>% 
+  hideGroup("Variance") %>%
+  hideGroup("95% Confidence Interval")
+krig_map
+
+```
 
