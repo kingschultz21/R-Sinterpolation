@@ -1,0 +1,7 @@
+Write a very brief paragraph on the general (very general ) findings of the study.
+
+Write a brief paragraph to explain both the benefits and drawbacks of the surfaces created by each interpolation method. Refer to your figures from the results section to help your discussion. You should provide a different paragraph for each method.
+
+Write a paragraph explain which method you selected to use for estimating a pollution surface dataset and your reason for selecting it. You need to be convincing and demonstrate that you have made an educated decision.
+
+Describe your findings in the context of the existing literature. Using at least three peer-reviewed papers, explain how your decision aligns or conflicts with what others have done regarding spatial interpolation for creating SWE or similar datasets.
