@@ -1,15 +1,22 @@
 ---
-title: "Spatial Interpolation of Particulate Matter in Southern California"
+title: "Spatial Interpolation of Ozone Air Pollution in Southern California"
+author: "By: Connor Schultz"
 geometry: margin=2cm
+output:
+  bookdown::html_document2: default
+bibliography: bibliography.bib
+link-citations: yes
 ---
-#### By Connor Schultz
 <!--------------------------------------------------------------------------------------------------------------------------------------->
 # Introduction
 <!--------------------------------------------------------------------------------------------------------------------------------------->
+<font size = "3">
+Air pollution is characterized as a mixture of particles and gases that have been associated with numerous acute and chronic health effects [@nuvolone2018]. Ozone, one of the major contributors to global air pollution occurs naturally in the earths stratosphere and protects the planets living organisms from ultraviolet radiation from the Sun [@nuvolone2018]. A large portion of the research relating to ozone air pollution originates in China, where some of the worlds largest urban and industrial areas are located. The health effects from ozone air pollution can be quite severe, ranging from inflammation and decreased lung function, to severe cardiovascular diseases and even death [@nuvolone2018]. In addition, adverse economic effects of air pollution have been studied, with many estimates claiming that the pollution has caused a decrease in China's historic GDP by 3 – 5% [@nam2019]. Studies conducted in China often divide the landmass into smaller subsets, as looking at the country at a local level reduces the generalization of the estimates and does a better job of capturing local phenomena [@nam2019]. Air pollution is complicated and non-uniformally distributed, and an effective study must take into account trends such as mountain-valley breezes and sea breezes [@xu2011]. Studies have found that the high concentrations of ozone pollution in rural areas often originates in urban areas and is carried down wind [@xu2011]. Spatial interpolation and geostatisitics allow the analyst to better understand the severity of air pollution and the underlying patterns that distribute the pollution over land masses. Due to the continuous nature of air pollution and the discrete nature of point sampling, spatial interpolation is one of the best strategies for modelling and understanding air pollution.
 
+Air pollution monitoring stations are typically limited due to cost considerations, thus spatial interpolation methods are heavily relied upon to estimate air pollution severity in a given area [@joseph2013].  In depth analysis such as the one performed by Janssen et al. also takes land cover data from CORINE into consideration to further understand the underlying geography of a region [@janssen2008]. Pollution mapping is not a simple task and requires spatial, geographic, technical and statistical skills on the part of the analyst to produce and effective study [@kethireddy2014]. The spatial interpolation methods examined in this study include thiessen polygons, inverse distance weighted, polynomial trend surfaces and kriging.  These methods range from the simplicity and ease of understanding of thiessen polygons, to the complicated and flexible universal kriging method. These methods are highly dependent on the parameters input by the analyst such as cell size, inverse distance exponents and polynomial equations and every decision made by the analyst has an effect on the output of the method. The objective of this study is to estimate ozone pollution in the Southern California air basin, and to explore the strengths and weaknesses of each spatial interpolation method. This study aims at providing insights on when to use each method and which methods are most effective for any given task.
 
-
-<!------------------------------------------------------Data Preperation----------------------------------------------------------------->
+</font>
+<!------------------------------------------------------Data Preparation----------------------------------------------------------------->
 ```{r libraries, warning=FALSE,message=FALSE, echo =FALSE}
 library(rgdal)
 library(gstat)
@@ -21,22 +28,15 @@ library(tmap)
 library(leaflet)
 ```
 
-<!--working directory-->
+<!-- working directory -->
 ```{r wd, echo =FALSE}
 dir <- "/home/connor/schoolwork_2020/first_semester/geog418/assignments/assignment4/R-Sinterpolation"
 setwd(dir)
-```
-
-<!--dataset 1-->
-```{r ds1, echo =FALSE, results="hide"}
-#DATASET 1
 #Read the pollution csv dataset.
 ozone = read.csv("./data/OZONE_PICKDATA_2016-4-30.csv", header = T, sep = ",")
-#Examine the first several rows of the ozone dataset. 
-head(ozone)
 ```
 
-<!--dataset 2-->
+<!-- dataset 2 -->
 ```{r ds2, results = "hide", message=FALSE, warning=FALSE, echo=FALSE}
 #DATASET 2
 #Read the monitoring station spatial dataset as an OGR data object.
@@ -47,7 +47,7 @@ SC.monitor = monitor[monitor$AIRBASIN %in% c("South Coast"),]
 SC.monitor.t = spTransform(SC.monitor, CRS("+init=epsg:26911"))
 ```
 
-<!--dataset 3-->
+<!-- dataset 3 -->
 ```{r ds3, results = "hide", message=FALSE, warning=FALSE, echo=FALSE}
 #DATASET 3
 #Read the California Air Basin spatial dataset.
@@ -60,7 +60,7 @@ SC.AirBasin = Ca.AirBasin[Ca.AirBasin$NAME %in% c("South Coast"),]
 SC.AirBasin.t = spTransform(SC.AirBasin, CRS("+init=epsg:26911"))
 ```
 
-<!--merge data-->
+<!-- merge data -->
 ```{r mathz, echo = FALSE}
 #Calculate the mean and max ozone level for each site for all readings.
 mean.ozone = aggregate(value ~ site, ozone, mean)
@@ -79,9 +79,18 @@ ozone.mean.spdf = na.omit(mrg.tab.mean)
 ozone.max.spdf = na.omit(mrg.tab.max)
 ```
 
+# Methods
 ## Study Area and Data
 ### Study Area
-```{r studyarea, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Figure 1: Study Area Map of Southern California Air Basin and Monitoring Station Locations"}
+
+<font size = "3">
+
+The study will be conducted on the South Coast Air Basin (60104) of Southern California. The South Coast Air Basin (SCAB) is approximately 10855 kilometers squared and includes Orange County, LA County, Riverside County and San Bernardino County. The air basin is home to approximately 14.6 million people, the majority of which reside in the Greater LA region. The SCAB is the second most populous region in the United States, and one of the smoggiest [@scaqmd2018]. The SCAB has average high temperatures ranging from 29 degrees Celsius in August to average low temperatures of 9 degrees Celsius in January. The region has low rainfall and is known to have strong, dry breezes due to the Santa Ana winds.
+
+Major progress in the SCAB has occurred in the last few decades with maximum ozone levels being reduced to a quarter of what they were in 1950 [@scaqmd2018]. Despite these improvements there is still progress to be made as maximum levels recorded in the basin in 2018 are twice as high as the federal standards for clean air [@scaqmd2018]. The governmental organization responsible for air pollution control in the SCAB is the South Coast Air Quality Management District and has members from city, county and state agencies. Figure 2.1 below shows a map of the study area, as well as the air quality monitoring stations where the sampled data used in this study was collected.
+
+</font>
+```{r studyarea, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Study Area Map of Southern California Air Basin and Monitoring Station Locations"}
 study_area = spTransform(SC.AirBasin, CRS("+proj=longlat +datum=WGS84"))
 stations  = spTransform(ozone.mean.spdf, CRS("+proj=longlat +datum=WGS84"))
 classifier <- colorBin(palette = "YlOrRd", stations$value)
@@ -89,9 +98,9 @@ classifier <- colorBin(palette = "YlOrRd", stations$value)
 study_area <- leaflet(stations) %>%
   setView(lng = -118, lat =  34 ,zoom = 7) %>%
   addProviderTiles(providers$CartoDB.Positron) %>%
-  addPolygons(data=study_area, weight = 2, color = "red") %>%
+  addPolygons(data=study_area, weight = 1, color = "red",opacity = 1,fillColor= "red",fillOpacity = 0.1) %>%
   addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE,
-           radius = 5,
+           radius = 3,
            color = ~classifier(value), fillOpacity = 1,
            label = mapply(
              function(x, y) {
@@ -102,23 +111,66 @@ study_area <- leaflet(stations) %>%
              labelOptions(direction = "auto")
            })) %>%
   addLegend("bottomright", pal = classifier, values = ~values, 
-            title = "Sampled Ozone (ppm)", opacity = 1)
+            title = "Sampled Ozone (ppm)", opacity = 1) %>%
+  addLegend("bottomright", colors = "red", labels = "Study Area",  
+            title = "Study Area Extent", opacity = 0.2)
 study_area
-
 ```
-<!--------------------------------------------------------------------------------------------------------------------------------------->
-# Thiessen Polygons
-<!--------------------------------------------------------------------------------------------------------------------------------------->
 
+### Data
+<font size = "3">
+
+There were three initial secondary datasets used in this study. The first dataset used was a shapefile of air quality monitoring stations in California. The second dataset used was a table of ozone concentration samples obtained at each monitoring station in 2016 which was extracted from the MRGD database on March 11th , 2016. The final dataset used was a shapefile of California Air Basins.
+
+A subset of monitoring stations pertaining to the SCAB was extracted from the monitoring station dataset. A similar process was performed on the air basins dataset, in which only the SCAB was extracted. A mean and max ozone pollution value was calculated for each monitoring station in the SCAB, and these values were then joined to monitoring station spatial dataset. Both the monitoring station locations and the SCAB geometry were then projected to a UTM NAD83 projection using espg 26911. All analysis in this study was performed on a NAD83 projection and the visualizations were created using a WGS84 projection as the functions used to create the maps in the subsequent analysis require this projection.
+</font>
+
+## Spatial Interpolation Methods
+### Thiessen Polygons
+<font size = "3">
+The first and most simple spatial interpolation method used in this study was thiessen polygons. Thiessen polygons contain a single point feature, in the case of this study an air quality monitoring station. A polygon is associated with each monitoring station, with every location inside the polygon being closer to the associated monitoring station than any other monitoring station [@tpesri2018]. The polygons are then assigned the mean ozone pollution sampled at the associated monitoring station in ppm. 
+
+</font>
+
+### Inverse Distance Weighted
+<font size = "3">
+The second spatial interpolation method used in this study was inverse distance weighted (IDW) interpolation. IDW makes the assumption that objects that are close to one another are similar and objects far away from one another are more dissimilar [@idwesri2018]. Weights are assigned to locations, with locations close to the sampled location or monitoring station assigned a higher weight and locations distant from the monitoring stations assigned a lesser weight. The rate at which the weights decrease is described by the IDW power function as a value of $p$. The following equation describes the IDW process, where $Z_p$ is predicted value at an unknown location, $Z_i$ is the observed value at each monitoring station and $d_i$ is the distance from each monitoring station to an unknown location.
+$$Z_p = \frac{\sum_{i=1}^n \frac{Z_i}{d_i^p}} {\sum_{i=1}^n \frac{1}{d_i^p}}$$
+An IDW exponent ($p$) value of 2 and 4 were tested in this study to create two inverse distance weighted interpolators with different weights assigned at each location. A leave-one-out validation routine was also performed using the IDW interpolator to see the quality of the predicted surface and the impacts that each monitoring station had on the interpolated surface.
+</font>
+
+### Polynomial Trend Surfaces
+<font size = "3">
+The third interpolation method examined was global polynomial interpolation or trend surface analysis. Global polynomial interpolation fits a smooth surface defined by a function to the input sample locations or in the case of this study, the monitoring station locations [@gpesri2018]. Both a linear and quadratic function were applied to the surface. Global polynomial interpolation aims at representing gradual trends in the area of interest such as wind patterns or patterns caused by geographic features such as mountains [@gpesri2018]. The surface created varies slowly and is dependent on the polynomial function that is used as input. The two polynomial functions used in this study are shown below, where $P_i$ is the value at location $i$, $X_i$ is the longitude of location $i$, $Y_i$ is the latitude of location $i$ and $f$ is a regression function.
+$$P_i = f(X_i + Y_i)$$
+$$P_i = f(X_i^2 + Y_i^2 +X_iY_i + X_i + Y_i)$$
+</font>
+
+### Kriging
+<font size = "3">
+The final interpolation method examined in this study was universal kriging. Unlike the other methods tested, kriging is non-deterministic and uses a geostatistical model that includes spatial auto correlation. The distance between two sampled points in a kriging interpolation is assumed to reflect a spatial auto correlation between the two locations. This auto correlation can be used to help explain variation in the surface [@kesri2016]. The formula for the kriging interpolator is shown below, where $Z_o(P_i)$ is the observed value at location $i$ and $Z_p(p_0)$ is the predicted value at location 0. $w$ is the weight for each location, which is dependent on the kriging model used.
+
+$$Z_p(p_0) = \sum_{i=1}^nw_iZ_o(p_i) $$
+Unlike IDW, the weight $w$ does not depend solely on distance. In universal kriging, there is an assumption of a trend in the data, such as a strong wind or other phenomenon [@kesri2016]. This phenomenon can be modeled with a polynomial, similar to how the trend surfaces were created previously. The polynomial values for each location are then subtracted from each observed locations values, and the errors are fit to a stochastic model using a semivariogram. The semivariogram describes how spatial auto correlation decreases with distance[@kesri2016]. There are many types of models that can be fit to a semivariogram such as linear, Gaussian, exponential and spherical models. In this study, spherical and exponential models will be tested to model the difference between a progressive decrease in spatial auto correlation and an exponential decrease in spatial auto correlation. In addition, both first order and second order polynomial trend surfaces will be tested.
+
+</font>
+
+# Results
+<!--------------------------------------------------------------------------------------------------------------------------------------->
+## Thiessen Polygons
+<!--------------------------------------------------------------------------------------------------------------------------------------->
+<font size = "3">
+Figure 3.1 below shows the thiessen polygon interpolator overlayed over the study area of the SCAB. Hovering over each polygon shows the estimated ozone pollution in ppm, which is derived from the observed mean ozone pollution sampled from each monitoring station contained in each polygon.
+</font>
 <!--init surface, set projection-->
-```{r init_surface, warning= FALSE, message= FALSE, echo=F, results="hide"}
+```{r initsurface, warning= FALSE, message= FALSE, echo=F, results="hide"}
 # Create a tessellated surface
 th  <-  as(dirichlet(as.ppp(ozone.mean.spdf)), "SpatialPolygons")
 proj4string(th) <- proj4string(ozone.mean.spdf)
 ```
 
 <!--create surface-->
-```{r create_surface, warning=FALSE,message=FALSE, echo=F, results="hide"}
+```{r createsurface, warning=FALSE,message=FALSE, echo=F, results="hide"}
 # The tessellated surface does not store attribute information
 # from the point data layer. We'll use the over() function (from the sp
 # package) to join the point attributes to the tesselated surface via
@@ -129,33 +181,41 @@ th.spdf  <-  SpatialPolygonsDataFrame(th, th.z)
 
 # Finally, we'll clip the tessellated  surface to the South Coast Air Basin boundaries
 th.clp   <- raster::intersect(SC.AirBasin.t,th.spdf)
-
 ```
 
 <!--thiessen polygons!-->
-```{r thiessen, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Figure 2: Thiessen Polygons"}
+```{r thiessen, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Thiessen Polygons Interpolation of Southern California Air Basin"}
 thiessen_polys = spTransform(th.clp, CRS("+proj=longlat +datum=WGS84"))
 classifier <- colorBin(palette = "YlOrRd", thiessen_polys$value, na.color = "transparent")
 
-thiessen <- leaflet() %>%
+thiessen <- leaflet(stations) %>%
   setView(lng = -117.7, lat =  34 ,zoom = 9) %>%
   addProviderTiles(providers$CartoDB.Positron) %>% 
   addPolygons(data=thiessen_polys, weight = 2, color = ~classifier(value), fillOpacity = 0.7,
               highlightOptions = highlightOptions(color = "white", weight = 4, bringToFront = FALSE),
               label = round(thiessen_polys$value, digits=4),
-              labelOptions = labelOptions(noHide = FALSE, textOnly = TRUE, opacity = 1 , textsize='20px')) %>%
+              labelOptions = labelOptions(noHide = FALSE, textOnly = TRUE, opacity = 1 , textsize='14px')) %>%
+  addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE,
+           radius = 1,
+           color = "black", fillOpacity = 1,
+           label = stations$SITENAME) %>%
   addLegend("bottomright", pal = classifier, values = thiessen_polys$value, 
-            title = "Predicted Ozone (ppm)", opacity = 1)
+            title = "Predicted Ozone (ppm)", opacity = 1) %>%
+  addLegend("bottomleft", colors = "black", labels = "Monitoring Station Location",
+            title = "Monitoring Stations", opacity = 1)
 thiessen
 
 ```
 
 <!--------------------------------------------------------------------------------------------------------------------------------------->
-# IDW
+## Inverse Distance Weighted
 <!--------------------------------------------------------------------------------------------------------------------------------------->
+<font size = "3">
+Figures 3.2 and 3.3 show the observed versus estimated values using the power of 2 and power of 4 IDW interpolators respectively. The interpolated surfaces were created using a raster with 50000 cells. Figure 3.4 shows the interpolated surface rasters overlayed over the study area, as well as a 95% confidence surface for each interpolator. The surfaces can be toggled in the top right of the figure to show the difference between each interpolation.
 
+</font>
 <!--create grid-->
-```{r IDW_grid,message=FALSE, warning=FALSE, results="hide",echo=F}
+```{r IDWgrid,message=FALSE, warning=FALSE, results="hide",echo=F}
 # Create an empty grid where n is the total number of cells
 grd <- as.data.frame(spsample(ozone.mean.spdf, "regular", n=50000))
 names(grd)       <- c("X", "Y")
@@ -164,32 +224,53 @@ gridded(grd)     <- TRUE  # Create SpatialPixel object
 fullgrid(grd)    <- TRUE  # Create SpatialGrid object
 
 proj4string(grd) <- proj4string(SC.monitor.t)
-P.idw <- gstat::idw(value ~ 1, ozone.mean.spdf, newdata=grd, idp=2.0)
-r       <- raster(P.idw)
+P.idw1 <- gstat::idw(value ~ 1, ozone.mean.spdf, newdata=grd, idp=2.0)
+P.idw2 <- gstat::idw(value ~ 1, ozone.mean.spdf, newdata=grd, idp=4.0)
+r       <- raster(P.idw1)
 r.m     <- mask(r, SC.AirBasin.t)
+
+r2       <- raster(P.idw2)
+r.m2     <- mask(r2, SC.AirBasin.t)
 
 ```
 
 <!-- populate IDW -->
 ```{r idw,results="hide", echo=F, message=FALSE, warning=FALSE}
-# Leave-one-out validation routine
-IDW.out <- vector(length = length(ozone.mean.spdf))
+# Leave-one-out validation routine POWER 2
+IDW.out1 <- vector(length = length(ozone.mean.spdf))
 for (i in 1:length(ozone.mean.spdf)) {
-  IDW.out[i] <- gstat::idw(value ~ 1, ozone.mean.spdf[-i,], ozone.mean.spdf[i,], idp=2)$var1.pred
+  IDW.out1[i] <- gstat::idw(value ~ 1, ozone.mean.spdf[-i,], ozone.mean.spdf[i,], idp=2)$var1.pred
+}
+# Leave-one-out validation routine POWER 4
+IDW.out2 <- vector(length = length(ozone.mean.spdf))
+for (i in 1:length(ozone.mean.spdf)) {
+  IDW.out2[i] <- gstat::idw(value ~ 1, ozone.mean.spdf[-i,], ozone.mean.spdf[i,], idp=4)$var1.pred
 }
 
 ```
 
 <!-- plot differences -->
-```{r idw_plot, dpi = 300, echo=F, message=FALSE, warning=FALSE}
-# Plot the differences
+```{r idwplot, dpi = 100, echo=F, message=FALSE, warning=FALSE,fig.align='center',fig.cap="Observed versus Inverse Distance Weighted Predicted Plot (p = 2)"}
+# Plot the differences POWER 2
 OP <- par(pty="s", mar=c(4,3,0,0))
-plot(IDW.out ~ ozone.mean.spdf$value, asp=1, xlab="Observed Ozone (ppm)", ylab="Predicted Ozone (ppm)", pch=16,
+plot(IDW.out1 ~ ozone.mean.spdf$value, asp=1, xlab="Observed Ozone (ppm)", ylab="Predicted Ozone (ppm)", pch=16,
      col=rgb(0,0,0,0.5))
-abline(lm(IDW.out ~ ozone.mean.spdf$value), col="red", lw=2,lty=2)
+abline(lm(IDW.out1 ~ ozone.mean.spdf$value), col="red", lw=2,lty=2)
 abline(0,1)
 par(OP)
-sqrt( sum((IDW.out - ozone.mean.spdf$value)^2) / length(ozone.mean.spdf))
+#sqrt( sum((IDW.out - ozone.mean.spdf$value)^2) / length(ozone.mean.spdf))
+
+```
+
+```{r idwplot2, dpi = 100, echo=F, message=FALSE, warning=FALSE,fig.align='center',fig.cap="Observed versus Inverse Distance Weighted Predicted Plot (p = 4)"}
+# Plot the differences POWER 4
+OP <- par(pty="s", mar=c(4,3,0,0))
+plot(IDW.out2 ~ ozone.mean.spdf$value, asp=1, xlab="Observed Ozone (ppm)", ylab="Predicted Ozone (ppm)", pch=16,
+     col=rgb(0,0,0,0.5))
+abline(lm(IDW.out2 ~ ozone.mean.spdf$value), col="red", lw=2,lty=2)
+abline(0,1)
+par(OP)
+#sqrt( sum((IDW.out - ozone.mean.spdf$value)^2) / length(ozone.mean.spdf))
 
 ```
 
@@ -225,47 +306,99 @@ img.sig   <- img
 img.sig$v <- CI /img$var1.pred 
 
 # Clip the confidence raster to Southern California
-r2 <- raster(img.sig, layer="v")
-r.m2 <- mask(r2, SC.AirBasin.t)
+rc <- raster(img.sig, layer="v")
+r.mc <- mask(rc, SC.AirBasin.t)
+```
+<!-- jackknife -->
+```{r jacknife2,results="hide", echo=F, message=FALSE, warning=FALSE}
+# Implementation of a jackknife technique to estimate a confidence interval at each unsampled point.
+# Create the interpolated surface
+img <- gstat::idw(value~1, ozone.mean.spdf, newdata=grd, idp=4.0)
+n   <- length(ozone.mean.spdf)
+Zi  <- matrix(nrow = length(img$var1.pred), ncol = n)
+
+# Remove a point then interpolate (do this n times for each point)
+st <- stack()
+for (i in 1:n){
+  Z1 <- gstat::idw(value~1, ozone.mean.spdf[-i,], newdata=grd, idp=4.0)
+  st <- addLayer(st,raster(Z1,layer=1))
+  # Calculated pseudo-value Z at j
+  Zi[,i] <- n * img$var1.pred - (n-1) * Z1$var1.pred
+}
+
+# Jackknife estimator of parameter Z at location j
+Zj <- as.matrix(apply(Zi, 1, sum, na.rm=T) / n )
+
+# Compute (Zi* - Zj)^2
+c1 <- apply(Zi,2,'-',Zj)            # Compute the difference
+c1 <- apply(c1^2, 1, sum, na.rm=T ) # Sum the square of the difference
+
+# Compute the confidence interval
+CI <- sqrt( 1/(n*(n-1)) * c1)
+
+# Create (CI / interpolated value) raster
+img.sig   <- img
+img.sig$v <- CI /img$var1.pred 
+
+# Clip the confidence raster to Southern California
+rc2 <- raster(img.sig, layer="v")
+r.mc2 <- mask(rc2, SC.AirBasin.t)
 ```
 
 <!-- visualize IDWs -->
-```{r idw_map, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Figure 3: Inverse Distance Weighted"}
+```{r idwmap, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Inverse Distance Weighted Interpolation of Southern California Air Basin"}
 idw_geom = projectRaster(r.m, crs=CRS("+proj=longlat +datum=WGS84"))
+idw_geom_c = projectRaster(r.mc, crs=CRS("+proj=longlat +datum=WGS84"))
 idw_geom2 = projectRaster(r.m2, crs=CRS("+proj=longlat +datum=WGS84"))
+idw_geom2_c = projectRaster(r.mc2, crs=CRS("+proj=longlat +datum=WGS84"))
 
-classifier1 <- colorBin(palette = "YlOrRd",values(idw_geom), na.color='transparent')
-classifier2 <- colorBin(palette = "YlOrRd",values(idw_geom2), na.color='transparent')
+classifier1 <- colorBin(palette = "YlOrRd",values(idw_geom), na.color='transparent', bins = 7)
+classifier2 <- colorBin(palette = "YlOrRd",values(idw_geom_c), na.color='transparent', bins = 7)
+classifier3 <- colorBin(palette = "YlOrRd",values(idw_geom2), na.color='transparent', bins = 7)
+classifier4 <- colorBin(palette = "YlOrRd",values(idw_geom2_c), na.color='transparent', bins = 7)
 
 idw_map <- leaflet(stations) %>%
   setView(lng = -117.7, lat =  34 ,zoom = 9) %>%
   addProviderTiles(providers$CartoDB.Positron) %>% 
-  addRasterImage(r.m, colors = classifier1, opacity=0.7, group = "Predicted Ozone") %>%
-  addRasterImage(r.m2, colors = classifier2, opacity=0.7, group = "95% Confidence Interval") %>%
+  addRasterImage(r.m, colors = classifier1, opacity=0.7, group = "Predicted Ozone (p = 2)") %>%
+  addRasterImage(r.mc, colors = classifier2, opacity=0.7, group = "95% Confidence Interval (p = 2)") %>%
+  addRasterImage(r.m2, colors = classifier3, opacity=0.7, group = "Predicted Ozone (p = 4)") %>%
+  addRasterImage(r.mc2, colors = classifier4, opacity=0.7, group = "95% Confidence Interval (p = 4)") %>%
   addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE,
            radius = 2,
            color = "black", fillOpacity = 1,
            label = stations$SITENAME) %>%
   addLegend("bottomright", pal = classifier1, values = values(idw_geom), 
-            title = "Predicted Ozone (ppm)", opacity = 1, group = "Predicted Ozone") %>%
-  addLegend("bottomright", pal = classifier2, values = values(idw_geom2), 
-            title = "95% Confidence Interval (ppm)", opacity = 1, group = "95% Confidence Interval") %>%
-  addLayersControl(overlayGroups = c("Predicted Ozone","95% Confidence Interval"),
+            title = "Predicted Ozone (ppm)", opacity = 1, group = "Predicted Ozone (p = 2)") %>%
+  addLegend("bottomright", pal = classifier2, values = values(idw_geom_c), 
+            title = "95% Confidence Interval (ppm)", opacity = 1, group = "95% Confidence Interval (p = 2)") %>%
+  addLegend("bottomright", pal = classifier3, values = values(idw_geom2), 
+            title = "Predicted Ozone (ppm)", opacity = 1, group = "Predicted Ozone (p = 4)") %>%
+  addLegend("bottomright", pal = classifier4, values = values(idw_geom2_c), 
+            title = "95% Confidence Interval (ppm)", opacity = 1, group = "95% Confidence Interval (p = 4)") %>%
+  addLegend("bottomleft", colors = "black", labels = "Monitoring Station Location",
+            title = "Monitoring Stations", opacity = 1) %>%
+  addLayersControl(overlayGroups = c("Predicted Ozone (p = 2)","95% Confidence Interval (p = 2)",
+                                     "Predicted Ozone (p = 4)","95% Confidence Interval (p = 4)"),
               options = layersControlOptions(collapsed = FALSE)) %>% 
-  hideGroup("95% Confidence Interval")
+  hideGroup("Predicted Ozone (p = 4)") %>%
+  hideGroup("95% Confidence Interval (p = 2)") %>%
+  hideGroup("95% Confidence Interval (p = 4)")
 idw_map
 
 ```
 
 <!--------------------------------------------------------------------------------------------------------------------------------------->
-# polynomial
+## Polynomial Trend Surfaces
 <!--------------------------------------------------------------------------------------------------------------------------------------->
+<font size = "3">
+Figure 3.5 shows both the first order and second order polynomial trend surface rasters overlayed over the study area. The trends were modeled using the formulas described in Section 2.2.3. The surfaces were also created using a raster of 50000 cells. The surfaces can be toggled in the top right corner of the figure.
 
+</font>
 <!-- define first order poly -->
 ```{r polynomial1,results="hide", echo=F, message=FALSE, warning=FALSE}
 # Define the 1st order polynomial equation
 f.1 <- as.formula(value ~ X + Y) 
-
 # Add X and Y to P
 ozone.mean.spdf$X <- coordinates(ozone.mean.spdf)[,1]
 ozone.mean.spdf$Y <- coordinates(ozone.mean.spdf)[,2]
@@ -304,7 +437,7 @@ r.m2 <- mask(r2, SC.AirBasin.t)
 ```
 
 <!-- visualize polys-->
-```{r poly_map, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Figure 4: Polynomial Trend Surfaces"}
+```{r polymap, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Polynomial Trend Surface Interpolation of Southern California Air Basin"}
 poly_geom = projectRaster(r.m, crs=CRS("+proj=longlat +datum=WGS84"))
 poly_geom2 = projectRaster(r.m2, crs=CRS("+proj=longlat +datum=WGS84"))
 
@@ -324,6 +457,8 @@ poly_map <- leaflet(stations) %>%
             title = "Predicted Ozone (ppm)", opacity = 1, group = "1st Order Polynomial") %>%
   addLegend("bottomright", pal = classifier2, values = values(poly_geom2), 
             title = "Predicted Ozone (ppm)", opacity = 1, group = "2nd Order Polynomial") %>%
+  addLegend("bottomleft", colors = "black", labels = "Monitoring Station Location",
+            title = "Monitoring Stations", opacity = 1) %>%
   addLayersControl(overlayGroups = c("1st Order Polynomial","2nd Order Polynomial"),
               options = layersControlOptions(collapsed = FALSE)) %>% 
   hideGroup("2nd Order Polynomial")
@@ -332,25 +467,43 @@ poly_map
 ```
 
 <!--------------------------------------------------------------------------------------------------------------------------------------->
-# kriging
+## Kriging
 <!--------------------------------------------------------------------------------------------------------------------------------------->
+<font size = "3">
+Figures 3.6 and 3.7 show the semivariograms and fitted kriging models using an exponential and spherical kriging model respectively. Each model used a first order polynomial trend surface using the formula described in 2.2.3. Each model had a set range of 10000, and a sill of 1.4e-05.
 
+</font>
 <!-- define krigs-->
-```{r krig_setup, echo=F, message=FALSE, warning=FALSE}
+```{r krigsetup, echo=F, message=FALSE, warning=FALSE,fig.align='center',fig.cap="Exponential Kriging Model Plot (first order polynomial)"}
 
 f.1 <- as.formula(value ~ X + Y) 
 var.smpl <- variogram(f.1, ozone.mean.spdf, cloud = FALSE) #, cutoff=1000000, width=89900)
 dat.fit  <- fit.variogram(var.smpl, fit.ranges = FALSE, fit.sills =FALSE,
-                          vgm(psill=1.4e-05, model="Gau", range=10000, nugget=0))
+                          vgm(psill=1.4e-05, model="Exp", range=10000, nugget=0))
 plot(var.smpl, dat.fit)
 
+```
 
-# Define the trend model
-f.1 <- as.formula(value ~ X + Y) 
+```{r krigsetup2, echo=F, message=FALSE, warning=FALSE,fig.align='center',fig.cap="Spherical Kriging Model Plot (first order polynomial)"}
 
+f.2 <- as.formula(value ~ X + Y + I(X*X)+I(Y*Y) + I(X*Y))
+var.smpl <- variogram(f.1, ozone.mean.spdf, cloud = FALSE) #, cutoff=1000000, width=89900)
+dat.fit  <- fit.variogram(var.smpl, fit.ranges = FALSE, fit.sills =FALSE,
+                          vgm(psill=1.4e-05, model="Sph", range=10000, nugget=0))
+plot(var.smpl, dat.fit)
+
+```
+
+```{r k1, echo=F, message=FALSE, warning=FALSE, results = "hide"}
 # Perform the krige interpolation (note the use of the variogram model
 # created in the earlier step)
 dat.krg <- krige( f.1, ozone.mean.spdf, grd, dat.fit)
+```
+
+```{r k2, echo=F, message=FALSE, warning=FALSE, results = "hide"}
+# Perform the krige interpolation (note the use of the variogram model
+# created in the earlier step)
+dat.krg2 <- krige( f.2, ozone.mean.spdf, grd, dat.fit)
 ```
 
 <!-- krigs to raster-->
@@ -365,39 +518,86 @@ r.m2 <- mask(r2, SC.AirBasin.t)
 r3   <- sqrt(raster(dat.krg, layer="var1.var")) * 1.96
 r.m3 <- mask(r3, SC.AirBasin.t)
 
-```
+# Convert kriged surface to a raster object for clipping
+rb <- raster(dat.krg2)
+r.mb <- mask(rb, SC.AirBasin.t)
 
+r2b   <- raster(dat.krg2, layer="var1.var")
+r.m2b <- mask(r2b, SC.AirBasin.t)
+
+r3b   <- sqrt(raster(dat.krg2, layer="var1.var")) * 1.96
+r.m3b <- mask(r3b, SC.AirBasin.t)
+
+```
+<font size = "3">
+Figure 3.8 shows the exponential kriging interpolated surfaces for a first and second order trend, as well as the variance and 95% confidence interval surface for each trend. The surfaces were created using an exponential kriging model and a raster of 50000 cells overlayed over the study area. The surfaces can be toggled in the top right of the figure to show differences in the interpolated surfaces.
+
+</font>
 <!-- visualize krigs-->
-```{r krig_map, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Figure 5: Kriging"}
+```{r krigmap, dpi=125,echo=F, fig.align='center', message=FALSE, warning=FALSE, fig.cap="Kriging Interpolation of Southern California Air Basin"}
 krig_geom = projectRaster(r.m, crs=CRS("+proj=longlat +datum=WGS84"))
 krig_geom2 = projectRaster(r.m2, crs=CRS("+proj=longlat +datum=WGS84"))
 krig_geom3 = projectRaster(r.m3, crs=CRS("+proj=longlat +datum=WGS84"))
-krig_geom2
+krig_geomb = projectRaster(r.mb, crs=CRS("+proj=longlat +datum=WGS84"))
+krig_geom2b = projectRaster(r.m2b, crs=CRS("+proj=longlat +datum=WGS84"))
+krig_geom3b = projectRaster(r.m3b, crs=CRS("+proj=longlat +datum=WGS84"))
+
 classifier1 <- colorBin(palette = "YlOrRd",values(krig_geom), na.color='transparent')
 classifier2 <- colorBin(palette = "YlOrRd",values(krig_geom2), na.color='transparent')
 classifier3 <- colorBin(palette = "YlOrRd",values(krig_geom3), na.color='transparent')
+classifier4 <- colorBin(palette = "YlOrRd",values(krig_geomb), na.color='transparent')
+classifier5 <- colorBin(palette = "YlOrRd",values(krig_geom2b), na.color='transparent')
+classifier6 <- colorBin(palette = "YlOrRd",values(krig_geom3b), na.color='transparent')
 
 krig_map <- leaflet(stations) %>%
   setView(lng = -117.7, lat =  34 ,zoom = 9) %>%
   addProviderTiles(providers$CartoDB.Positron) %>% 
-  addRasterImage(r.m, colors = classifier1, opacity=0.7, group = "Predicted Ozone") %>%
-  addRasterImage(r.m2, colors = classifier2, opacity=0.7, group = "Variance") %>%
-  addRasterImage(r.m3, colors = classifier3, opacity=0.7, group = "95% Confidence Interval") %>%
+  addRasterImage(r.m, colors = classifier1, opacity=0.7, group = "Predicted Ozone (1st order)") %>%
+  addRasterImage(r.m2, colors = classifier2, opacity=0.7, group = "Variance (1st order)") %>%
+  addRasterImage(r.m3, colors = classifier3, opacity=0.7, group = "95% Confidence Interval (1st order)") %>%
+  addRasterImage(r.mb, colors = classifier4, opacity=0.7, group = "Predicted Ozone (2nd order)") %>%
+  addRasterImage(r.m2b, colors = classifier5, opacity=0.7, group = "Variance (2nd order)") %>%
+  addRasterImage(r.m3b, colors = classifier6, opacity=0.7, group = "95% Confidence Interval (2nd order)") %>%
   addCircleMarkers(lng = ~LONGITUDE, lat = ~LATITUDE,
            radius = 2,
            color = "black", fillOpacity = 1,
            label = stations$SITENAME) %>%
   addLegend("bottomright", pal = classifier1, values = values(krig_geom), 
-            title = "Predicted Ozone (ppm)", opacity = 1, group = "Predicted Ozone") %>%
+            title = "Predicted Ozone (ppm)", opacity = 1, group = "Predicted Ozone (1st order)") %>%
   addLegend("bottomright", pal = classifier2, values = values(krig_geom2), 
-            title = "Variance (squared ppm x e-05)", opacity = 1, group = "Variance") %>%
+            title = "Variance (squared ppm x e-05)", opacity = 1, group = "Variance (1st order)") %>%
   addLegend("bottomright", pal = classifier3, values = values(krig_geom3), 
-            title = "95% Confidence Interval (ppm)", opacity = 1, group = "95% Confidence Interval") %>%
-  addLayersControl(overlayGroups = c("Predicted Ozone","Variance","95% Confidence Interval"),
+            title = "95% Confidence Interval (ppm)", opacity = 1, group = "95% Confidence Interval (1st order)") %>%
+  addLegend("bottomright", pal = classifier4, values = values(krig_geomb), 
+            title = "Predicted Ozone (ppm)", opacity = 1, group = "Predicted Ozone (2nd order)") %>%
+  addLegend("bottomright", pal = classifier5, values = values(krig_geom2b), 
+            title = "Variance (squared ppm x e-05)", opacity = 1, group = "Variance (2nd order)") %>%
+  addLegend("bottomright", pal = classifier6, values = values(krig_geom3b), 
+            title = "95% Confidence Interval (ppm)", opacity = 1, group = "95% Confidence Interval (2nd order)") %>%
+  addLegend("bottomleft", colors = "black", labels = "Monitoring Station Location",
+            title = "Monitoring Stations", opacity = 1) %>%
+  addLayersControl(overlayGroups = c("Predicted Ozone (1st order)","Variance (1st order)","95% Confidence Interval (1st order)",
+                                     "Predicted Ozone (2nd order)","Variance (2nd order)","95% Confidence Interval (2nd order)"),
               options = layersControlOptions(collapsed = FALSE)) %>% 
-  hideGroup("Variance") %>%
-  hideGroup("95% Confidence Interval")
+  hideGroup("Variance (1st order)") %>%
+  hideGroup("Variance (2nd order)") %>%
+  hideGroup("95% Confidence Interval (1st order)") %>%
+  hideGroup("95% Confidence Interval (2nd order)") %>%
+  hideGroup("Predicted Ozone (2nd order)")
 krig_map
 
 ```
+# Discussion
+<font size = "3">
+The interpolated surfaces produced throughout the study reveal many aspects about the concentration of ozone in the SCAB, as well as the differences in interpolation methods. Thiessen polygons produced a discrete, discontinuous surface with abrupt boundaries between areas of differing ozone concentration. Inverse distance weighted produced a smoother, more contiguous surface which is a more accurate representation of the real world. The difference in powers in the IDW function had a large impact on the interpolated surfaces, with the higher power (p = 4) having a more gradual decline in ozone concentration. The polynomial trend surfaces revealed a linear increase in ozone concentration from the North-Western region of the SCAB, to the South-West. The trends also revealed a quadratic trend, with lower concentrations in the center of the study area, and increasing concentrations as one moves to the North, East or South.
+Finally, the kriging method produced smooth surfaces similar to IDW, with the influence of the trend surfaces. The first order predicted surface has a similar result to the IDW method, with some influence from the trend surface, however the second order predicted surface appeared to be largely dominated by the trend surface.
 
+The most effective method used to model interpolate ozone concentration in the SCAB was the first order universal kriging method. This method has a high level of flexibility and the model used to fit the semivariogram can be modified and cross-validated to find optimum parameters. In addition, this model captures a trend that is present in the underlying geography and incorporates spatial auto correlation, which are ignored by IDW and thiessen polygons. This method is limited to the model parameters and changing parameters such as the range or sill can have a large impact on the output. The exponential model was chosen in this analysis however a spherical or Guassian model may have been are more optimal choice. In addition, the range and sill values could have been suboptimal in this study and require more fine-tuning and cross-validation.
+
+Universal kriging is often used in geostatistics and spatial interpolation due to its flexibility and adaptability. The ability to add trends creates a more realistic analysis. The studies performed by Joseph et al. when interpolating ozone concentration used universal kriging and multiple trend surfaces, to model a variety of linear geographic trends [@joseph2013]. The parameters were cross validated to find optimal values. The studies performed by Janssen et al. used ordinary kriging to model air pollution, as well as land cover data and satellite imagery to aid in decision making [@janssen2008]. Furthermore, studies of air pollution performed by Kethireddy et al. also used ordinary kriging to interpolate ozone concentration and do extensive cross-validation with the model errors to optimize the model parameters [@kethireddy2014].
+
+In conclusion, the kriging model in presented in this study is fairly naive in comparison to the models created in more extensive studies, however kriging provides an effective, unbiased interpolator that can be modified heavily to model the underlying geography and trends in a given region.
+
+</font>
+
+# References
